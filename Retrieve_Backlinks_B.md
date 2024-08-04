@@ -4,7 +4,7 @@
 use AppleScript version "2.4" -- Yosemite (10.10) or later
 use scripting additions
 
--- bcdavasconcelos 
+-- bcdavasconcelos
 -- Source: https://github.com/bcdavasconcelos/DEVONthink-3-Backlinks
 
 property UseAliases : true
@@ -16,7 +16,7 @@ on performSmartRule(theSources)
 		show progress indicator "Updating return links"
 		--	set theSources to the selection
 		repeat with theSource in theSources
-			
+
 			set theSearchString to my prepare_search_string(theSource)
 			set theName to name of theSource
 			try
@@ -27,12 +27,12 @@ on performSmartRule(theSources)
 			set theShortName to my replaceText(theShortName, " ", "%20")
 			set theList to my get_list(theSearchString, theShortName)
 			set theResult to my print_to_DT(theList, theSource)
-			
-			
+
+
 		end repeat
 		hide progress indicator
 		display notification "return links updated"
-		
+
 	end tell
 end performSmartRule
 
@@ -111,52 +111,51 @@ on prepare_search_string(theSource)
 		if theAliases is "" then
 			set theSearchString to theNameString
 		end if
-		
+
 		set theSearchString to "name!=" & theName & " content: " & theSearchString & space & "kind: markdown"
-		
+
 		return theSearchString
 	end tell
 end prepare_search_string
 
 on get_list(theSearchString, theShortName)
 	tell application id "DNtp"
-		
-		set theRecords to search theSearchString in current database
+
+		set theRecords to search theSearchString in root of current database
 		set theNR to count theRecords
 		--	log message "Found " & theNR & " return links to the record"
-		
+
 		set theList to {}
 		repeat with each in theRecords
-			
+
 			set the end of theList to return & quoted form of ("<a id=" & name of each & "\" href=\"" & reference URL of each & "?search=" & theShortName & "&reveal=1" & "\">" & name of each & "</a></br>")
-			
+
 		end repeat
-		
+
 		considering numeric strings
 			set theList to my sortlist(theList)
 		end considering
-		
+
 		return theList
-		
+
 	end tell
 end get_list
 
 on print_to_DT(theList, theSource)
 	tell application id "DNtp"
-		
+
 		set theList to "'<font size=\"6\" color=\"#8080BB\"><font face=\"" & theFont & "\">'" & theList & "'</font></font>'"
-		
+
 		-- Convert to RTF
 		set theRTF to (do shell script "echo " & theList & " | textutil -stdin -stdout -inputencoding utf-8 -format html -convert rtf | pbcopy")
 		set theRTF to the clipboard
 		set theRTF to «class RTF » of theRTF
 		add custom meta data theRTF for MDField to theSource
-		
+
 	end tell
 end print_to_DT
 
 
 ```
-
 
 #Applescript #DEVONthink

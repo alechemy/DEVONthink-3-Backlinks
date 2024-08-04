@@ -1,22 +1,21 @@
-# Retrieve Backlinks A
-
-```applescript
--- bcdavasconcelos 
--- Source: https://github.com/bcdavasconcelos/DEVONthink-3-Backlinks
-
 property UseAliases : true
-property AutoWiki_Links : false -- change to false for wiki links between double brackets, e.g. "[[link]]"
+property AutoWiki_Links : true -- change to false for wiki links between double brackets, e.g. "[[link]]"
 property theKind : "extension:md" -- the extension you will be looking for
-property theDelimiter : "#### Backlinks" -- Delimiter of choice. e.g. # Backlinks
-property limit : 60 -- limit for the number of backlinks
+property theDelimiter : "#### Linked mentions" -- Delimiter of choice. e.g. # Backlinks
+property limit : 20 -- limit for the number of backlinks
 property removeduplicates : false
-property theSeparator : " | " -- this will stand between the links. It can be just a space or some other random character. 
+property theSeparator : linefeed -- this will stand between the links. It can be just a space or some other random character.
+property debug : true
 
+if debug then
+	tell application id "DNtp" to my PerformSmartRule(selection as list)
+end if
 
--- tell application id "DNtp" to my PerformSmartRule(selection as list)
 on PerformSmartRule(theSources)
 	tell application id "DNtp"
-		set theSources to selection
+		if debug then
+			set theSources to selection
+		end if
 		
 		show progress indicator "Updating return links" with cancel button
 		
@@ -47,35 +46,57 @@ on get_list(theSource)
 			set theAliasesString to my trimtext(theAliases, " ", "end")
 			set theAliasesString to my replaceText(theAliasesString, ", ", "\") OR (\"")
 			set theSearchString to theNameString & " OR " & "(\"" & theAliasesString & "\")"
-		end if
-		if theAliases is "" then
+		else
 			set theSearchString to theNameString
 		end if
 		
 		set theSearchString to "name!=" & theName & " content: " & theSearchString & space & theKind
-		
+		log theSearchString
 		set theList to {}
-		set m to 0
-		set theRecords to search theSearchString in theDB
+		set numLinks to 0
+		set theRecords to search theSearchString in root of theDB
+		
 		repeat with theRecord in theRecords
-			set m to m + 1
-			if m < limit then
-				set theRecordName to (name of theRecord) as text
+			try
+				set isExcluded to exclude from Wiki linking of theRecord
+				if isExcluded then error 0 -- continue
 				
-				if AutoWiki_Links is false then
-					set theText to the plain text of theRecord
-					if theText contains "[[" & theName & "]]" then
-						set the end of theList to "[[" & theRecordName & "]]" & theSeparator
-					else if theText does not contain "[[" & theRecordName & "]]" then
-						
-					end if
+				set theText to the plain text of theRecord
+				set oldDelims to my text item delimiters
+				set my text item delimiters to theDelimiter
+				try
+					set textContent to first text item of theText
+				on error
+					set textContent to theText
+				end try
+				set my text item delimiters to oldDelims
+				
+				-- check for the name
+				set actuallyContains to name of theRecord is not theName and textContent contains theName
+				
+				-- fallback: check for the any alias
+				if actuallyContains is false and UseAliases and theAliases is not "" then
+					set oldDelims to my text item delimiters
+					set my text item delimiters to ","
+					repeat with sourceAlias in text items of theAliases
+						set actuallyContains to textContent contains sourceAlias
+						if actuallyContains then exit repeat
+					end repeat
+					set my text item delimiters to oldDelims
 				end if
 				
-				if AutoWiki_Links is true then
-					set the end of theList to theRecordName & theSeparator
+				if actuallyContains then
+					set theRecordName to (name of theRecord) as text
 					
+					if AutoWiki_Links then
+						set the end of theList to theRecordName & theSeparator
+					else if theText contains "[[" & theName & "]]" then
+						set the end of theList to "[[" & theRecordName & "]]" & theSeparator
+					end if
+					set numLinks to numLinks + 1
+					if numLinks = limit then exit repeat
 				end if
-			end if
+			end try
 		end repeat
 		
 		considering numeric strings
@@ -107,8 +128,8 @@ on replace_section(theSource, theList)
 		try
 			set theText to item 1 of theDelimitedList
 			set theText to my trimtext(theText, linefeed, "end")
-			if (theList as text) contains theSeparator then set theText to theText & linefeed & linefeed & theDelimiter & linefeed & linefeed & theList as text
-			if theList does not contain theSeparator then set theText to theText
+			set numResults to count of items in theList
+			if numResults > 0 then set theText to theText & linefeed & linefeed & theDelimiter & linefeed & linefeed & theList as text
 			return theText
 		end try
 	end tell
@@ -186,6 +207,3 @@ on removeDuplicateRecords(inputList)
 	
 	return outputList
 end removeDuplicateRecords
-
-
-```
